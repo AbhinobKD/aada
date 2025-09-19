@@ -1,0 +1,834 @@
+<script type="text/javascript">
+    var gk_isXlsx = false;
+    var gk_xlsxFileLookup = {};
+    var gk_fileData = {};
+    function filledCell(cell) {
+        return cell !== '' && cell != null;
+    }
+    function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                    row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                    headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+    }
+</script>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title style="font: bold 40px 'Bitcount'">AADA - Innovating AI & IoT Solutions</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Monoton&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #05050f;
+            color: #ffffff;
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+
+        #threeCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.7;
+        }
+
+        .nav {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            gap: 25px;
+            background: rgba(10, 10, 20, 0.6);
+            backdrop-filter: blur(12px);
+            border-radius: 50px;
+            padding: 12px 30px;
+            border: 1px solid rgba(0, 255, 204, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 255, 204, 0.15);
+        }
+
+        .nav a {
+            color: #e0e0e0;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            padding: 10px 20px;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .nav a:hover {
+            color: #00ffcc;
+            background: rgba(0, 255, 204, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 255, 204, 0.3);
+        }
+
+        .hero {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .hero-content {
+            z-index: 10;
+            max-width: 900px;
+            padding: 0 20px;
+        }
+
+        .hero-title {
+            font-family: Monoton;
+            font-size: 8rem;
+            background: linear-gradient(45deg, #00ffcc, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+            text-shadow: 0 0 24px rgba(0, 255, 204, 0.2);
+        }
+
+        @keyframes gradient {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        .hero-subtitle {
+            font-size: 1.6rem;
+            font-weight: 400;
+            line-height: 1.6;
+            margin-bottom: 40px;
+            color: #d0d0d0;
+            animation: fadeInUp 1.2s ease 0.5s both;
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 16px 50px;
+            background: linear-gradient(45deg, #00ffcc, #ff00ff);
+            border: none;
+            border-radius: 50px;
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 1.1rem;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.4s ease;
+            box-shadow: 0 10px 40px rgba(0, 255, 204, 0.4);
+            position: relative;
+            overflow: hidden;
+            animation: pulse 2s infinite ease-in-out;
+        }
+
+        .cta-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: all 0.5s ease;
+        }
+
+        .cta-button:hover::before {
+            left: 100%;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 15px 50px rgba(0, 255, 204, 0.6);
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                box-shadow: 0 10px 40px rgba(0, 255, 204, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 10px 60px rgba(0, 255, 204, 0.7);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .section {
+            padding: 120px 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .section-title {
+            font-size: 3.2rem;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 60px;
+            background: linear-gradient(45deg, #00ffcc, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .section-title::after {
+            content: '';
+            display: block;
+            width: 100px;
+            height: 4px;
+            background: linear-gradient(45deg, #00ffcc, #ff00ff);
+            margin: 20px auto;
+            border-radius: 2px;
+        }
+
+        .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .about-text {
+            font-size: 1.2rem;
+            font-weight: 400;
+            line-height: 1.8;
+            color: #e0e0e0;
+            animation: fadeInUp 1s ease 0.3s both;
+        }
+
+        .about-canvas {
+            width: 100%;
+            height: 450px;
+            border-radius: 15px;
+            border: 1px solid rgba(0, 255, 204, 0.2);
+            box-shadow: 0 0 40px rgba(0, 255, 204, 0.3);
+            transform: perspective(1000px) rotateX(0deg);
+            transition: transform 0.5s ease;
+        }
+
+        .about-canvas:hover {
+            transform: perspective(1000px) rotateX(5deg) rotateY(5deg);
+        }
+
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 30px;
+        }
+
+        .project-card {
+            background: rgba(10, 10, 20, 0.5);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(0, 255, 204, 0.2);
+            border-radius: 20px;
+            padding: 30px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.5s ease;
+            transform: perspective(1000px) rotateX(0deg) rotateY(0deg);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .project-card:hover {
+            transform: perspective(1000px) rotateX(3deg) rotateY(3deg) translateY(-10px);
+            box-shadow: 0 20px 50px rgba(0, 255, 204, 0.4);
+        }
+
+        .project-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 204, 0.2), transparent);
+            transition: all 0.6s ease;
+        }
+
+        .project-card:hover::before {
+            left: 100%;
+        }
+
+        .project-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #ff00ff;
+            animation: float 4s ease-in-out infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .project-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #00ffcc;
+            letter-spacing: 1px;
+        }
+
+        .project-description {
+            font-size: 1rem;
+            line-height: 1.7;
+            color: #d0d0d0;
+            margin-bottom: 20px;
+        }
+
+        .tech-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .tech-tag {
+            background: rgba(0, 255, 204, 0.15);
+            border: 1px solid rgba(0, 255, 204, 0.3);
+            border-radius: 12px;
+            padding: 6px 14px;
+            font-size: 0.85rem;
+            color: #00ffcc;
+            transition: all 0.3s ease;
+        }
+
+        .tech-tag:hover {
+            background: rgba(0, 255, 204, 0.3);
+            transform: scale(1.1);
+        }
+
+        .contact-section {
+            text-align: center;
+            background: linear-gradient(135deg, rgba(0, 255, 204, 0.1), rgba(255, 0, 255, 0.1));
+            border-radius: 25px;
+            padding: 80px 40px;
+            margin: 100px 20px;
+            position: relative;
+            box-shadow: 0 10px 40px rgba(0, 255, 204, 0.2);
+        }
+
+        .contact-title {
+            font-size: 2.8rem;
+            font-weight: 800;
+            margin-bottom: 25px;
+            background: linear-gradient(45deg, #00ffcc, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 1.5px;
+        }
+
+        .contact-text {
+            font-size: 1.2rem;
+            font-weight: 400;
+            margin-bottom: 40px;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+
+        .social-links {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .social-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 30px;
+            background: rgba(10, 10, 20, 0.5);
+            border: 1px solid rgba(0, 255, 204, 0.2);
+            border-radius: 30px;
+            color: #e0e0e0;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 1rem;
+            text-transform: uppercase;
+            transition: all 0.4s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .social-link:hover {
+            background: rgba(0, 255, 204, 0.3);
+            color: #ffffff;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0, 255, 204, 0.4);
+        }
+
+        .footer {
+            text-align: center;
+            padding: 40px 20px;
+            font-size: 0.9rem;
+            color: #a0a0a0;
+            border-top: 1px solid rgba(0, 255, 204, 0.1);
+            margin-top: 80px;
+        }
+
+        @media (max-width: 1000px) {
+            .hero-title {
+                font-size: 4.2rem;
+            }
+
+            .hero-subtitle {
+                font-size: 1.2rem;
+            }
+
+            .section-title {
+                font-size: 2.5rem;
+            }
+
+            .about-grid {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .about-canvas {
+                height: 300px;
+            }
+
+            .nav {
+                position: static;
+                margin: 20px;
+                flex-wrap: wrap;
+                justify-content: center;
+                padding: 10px 20px;
+            }
+
+            .projects-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="threeCanvas"></canvas>
+
+    <nav class="nav">
+        <a href="#home">Home</a>
+        <a href="#about">About</a>
+        <a href="#projects">Projects</a>
+        <a href="#contact">Contact</a>
+    </nav>
+
+    <section class="hero" id="home">
+        <div class="hero-content">
+            <div class="hero-title">AADA</div>
+            <p class="hero-subtitle">Engineering the Future with AI, IoT, and Cutting-Edge Software</p>
+            <a href="#about" class="cta-button">Explore Our Innovations</a>
+        </div>
+    </section>
+
+    <section class="section" id="about">
+        <h2 class="section-title">About AADA</h2>
+        <div class="about-grid">
+            <div class="about-text">
+                <p>AADA is a visionary student-led organization at the forefront of technological innovation. We
+                    specialize in Artificial Intelligence, Internet of Things, and advanced software solutions, creating
+                    projects that push the boundaries of what's possible.</p>
+                <br>
+                <p>Our mission is to blend creativity with technical expertise, building intelligent systems and IoT
+                    ecosystems that solve real-world challenges. From AI-powered music analyzers to smart home
+                    automation, AADA is shaping the future, one innovation at a time.</p>
+            </div>
+            <canvas class="about-canvas" id="about3D"></canvas>
+        </div>
+    </section>
+
+    <section class="section" id="projects">
+        <h2 class="section-title">Our Projects</h2>
+        <div class="projects-grid">
+            <div class="project-card">
+                <div class="project-icon">🎼</div>
+                <h3 class="project-title">Real-Time Music Analyzer</h3>
+                <p class="project-description">An AI-driven tool that analyzes live or uploaded audio to detect chords,
+                    scales, and notes in real-time, ideal for music education and visualizations.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">Python</span>
+                    <span class="tech-tag">Librosa</span>
+                    <span class="tech-tag">TensorFlow</span>
+                    <span class="tech-tag">Audio Processing</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">✍️</div>
+                <h3 class="project-title">AirDraw Gesture Typing</h3>
+                <p class="project-description">A touchless typing system that tracks hand gestures to convert
+                    finger-drawn letters into text, designed for accessibility and AR interfaces.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">OpenCV</span>
+                    <span class="tech-tag">MediaPipe</span>
+                    <span class="tech-tag">Python</span>
+                    <span class="tech-tag">Gesture Recognition</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">🔍</div>
+                <a href="https://abhinobkd.github.io/Enhanced-searcher/" target="_blank"><h3 class="project-title"> Search Prefix Tool (EST)</h3></a>
+                <p class="project-description">Enhancing Google search with smart prefixes, featuring
+                    a professional UI and theme options for efficient research.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">JavaScript</span>
+                    <span class="tech-tag">HTML</span>
+                    <span class="tech-tag">CSS</span>
+                    <span class="tech-tag">Chrome API</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">🔌</div>
+                <h3 class="project-title">AADAconnect Smart Plug System</h3>
+                <p class="project-description">An AI-powered IoT ecosystem for smart home automation, featuring
+                    real-time MQTT control, Firebase integration, and a futuristic web dashboard.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">ESP32</span>
+                    <span class="tech-tag">MQTT</span>
+                    <span class="tech-tag">Firebase</span>
+                    <span class="tech-tag">IoT</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">🤖</div>
+                <h3 class="project-title">Color Detection Mechatronic Arm</h3>
+                <p class="project-description">A robotic arm that detects and picks objects based on color, using
+                    ESP8266, color sensors, and servos for precise automation.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">ESP8266</span>
+                    <span class="tech-tag">Color Sensors</span>
+                    <span class="tech-tag">Servos</span>
+                    <span class="tech-tag">Mechatronics</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">🦾</div>
+                <h3 class="project-title">Gesture-Based Robot Arm</h3>
+                <p class="project-description">A robotic arm controlled through intuitive gestures or patterns,
+                    leveraging gyroscopes or camera-based tracking for seamless interaction.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">Gyroscope</span>
+                    <span class="tech-tag">Camera</span>
+                    <span class="tech-tag">Robotics</span>
+                    <span class="tech-tag">Gesture Control</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">⌨️</div>
+                <h3 class="project-title">Typing Practice Software</h3>
+                <p class="project-description">A Python-based tool to enhance typing skills with frequently used words,
+                    featuring an intuitive GUI for user engagement.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">Python</span>
+                    <span class="tech-tag">Tkinter</span>
+                    <span class="tech-tag">PyQt</span>
+                    <span class="tech-tag">GUI</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">📁</div>
+                <h3 class="project-title">File Sorting System</h3>
+                <p class="project-description">An automated Python tool to organize files into folders based on type or
+                    custom logic, streamlining file management.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">Python</span>
+                    <span class="tech-tag">os</span>
+                    <span class="tech-tag">shutil</span>
+                    <span class="tech-tag">Automation</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">☁️</div>
+                <h3 class="project-title">Google Drive Search Tool</h3>
+                <p class="project-description">A specialized search tool using Google Drive prefixes to find shared
+                    files, with plans for integration into the EST tool.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">JavaScript</span>
+                    <span class="tech-tag">Google API</span>
+                    <span class="tech-tag">Search</span>
+                    <span class="tech-tag">Web</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section contact-section" id="contact">
+        <h2 class="contact-title">Connect with AADA</h2>
+        <p class="contact-text">We're seeking passionate innovators to join our mission of building the future with AI
+            and IoT. Reach out to collaborate or learn more!</p>
+        <div class="social-links">
+            <a href="#" class="social-link">
+                <span>📧</span>
+                Email
+            </a>
+            <a href="#" class="social-link">
+                <span>💼</span>
+                LinkedIn
+            </a>
+            <a href="#" class="social-link">
+                <span>🔗</span>
+                GitHub
+            </a>
+            <a href="#" class="social-link">
+                <span>🐦</span>
+                Twitter
+            </a>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <p>© 2025 AADA - Pioneering AI & IoT Innovation</p>
+    </footer>
+
+    <script>
+        // Three.js Background with 3D Particle System
+        function initThreeJS() {
+            const canvas = document.getElementById('threeCanvas');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            // Particle System
+            const particlesGeometry = new THREE.BufferGeometry();
+            const particleCount = 1000;
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+
+            for (let i = 0; i < particleCount * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 100;
+                positions[i + 1] = (Math.random() - 0.5) * 100;
+                positions[i + 2] = (Math.random() - 0.5) * 100;
+                colors[i] = 0; colors[i + 1] = 1; colors[i + 2] = 0.8;
+            }
+
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const particlesMaterial = new THREE.PointsMaterial({
+                size: 0.1,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.6,
+                sizeAttenuation: true
+            });
+
+            const particles = new THREE.Points(particlesGeometry, particlesMaterial);
+            scene.add(particles);
+
+            // Lines between particles
+            const linesGeometry = new THREE.BufferGeometry();
+            const linesMaterial = new THREE.LineBasicMaterial({
+                color: 0x00ffcc,
+                transparent: true,
+                opacity: 0.3
+            });
+
+            const maxConnections = 50;
+            const linePositions = [];
+            const positionsArray = particlesGeometry.attributes.position.array;
+
+            for (let i = 0; i < particleCount; i++) {
+                for (let j = i + 1; j < particleCount; j++) {
+                    const dx = positionsArray[i * 3] - positionsArray[j * 3];
+                    const dy = positionsArray[i * 3 + 1] - positionsArray[j * 3 + 1];
+                    const dz = positionsArray[i * 3 + 2] - positionsArray[j * 3 + 2];
+                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                    if (distance < 10 && Math.random() < 0.1) {
+                        linePositions.push(
+                            positionsArray[i * 3], positionsArray[i * 3 + 1], positionsArray[i * 3 + 2],
+                            positionsArray[j * 3], positionsArray[j * 3 + 1], positionsArray[j * 3 + 2]
+                        );
+                    }
+                }
+            }
+
+            linesGeometry.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+            const lines = new THREE.LineSegments(linesGeometry, linesMaterial);
+            scene.add(lines);
+
+            camera.position.z = 50;
+
+            function animate() {
+                requestAnimationFrame(animate);
+                particles.rotation.y += 0.001;
+                particles.rotation.x += 0.0005;
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // 3D About Section Animation
+        function initAbout3D() {
+            const canvas = document.getElementById('about3D');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, canvas.offsetWidth / canvas.offsetHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+            renderer.setSize(canvas.offsetWidth, canvas.offsetHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            const geometry = new THREE.IcosahedronGeometry(5, 1);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0x00ffcc,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.5
+            });
+            const icosahedron = new THREE.Mesh(geometry, material);
+            scene.add(icosahedron);
+
+            const pointLight = new THREE.PointLight(0xff00ff, 1, 100);
+            pointLight.position.set(10, 10, 10);
+            scene.add(pointLight);
+
+            camera.position.z = 15;
+
+            function animate() {
+                requestAnimationFrame(animate);
+                icosahedron.rotation.x += 0.01;
+                icosahedron.rotation.y += 0.01;
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = canvas.offsetWidth / canvas.offsetHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(canvas.offsetWidth, canvas.offsetHeight);
+            });
+        }
+
+        // GSAP Scroll Animations
+        function initGSAPAnimations() {
+            gsap.registerPlugin(ScrollTrigger);
+            gsap.utils.toArray('.project-card, .section-title, .about-text, .contact-section').forEach(element => {
+                gsap.from(element, {
+                    opacity: 0,
+                    y: 80,
+                    duration: 1.2,
+                    ease: 'power3.out',
+                    scrollTrigger: {
+                        trigger: element,
+                        start: 'top 85%',
+                        toggleActions: 'play none none reverse'
+                    }
+                });
+            });
+        }
+
+        // Smooth Scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Mouse Interaction for 3D Background
+        let mouseX = 0, mouseY = 0;
+        document.addEventListener('mousemove', (e) => {
+            mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        // Initialize Everything
+        document.addEventListener('DOMContentLoaded', () => {
+            initThreeJS();
+            initAbout3D();
+            initGSAPAnimations();
+        });
+    </script>
+</body>
+
+</html>
