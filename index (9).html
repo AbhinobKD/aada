@@ -1,0 +1,1522 @@
+<script type="text/javascript">
+    var gk_isXlsx = false;
+    var gk_xlsxFileLookup = {};
+    var gk_fileData = {};
+    function filledCell(cell) {
+        return cell !== '' && cell != null;
+    }
+    function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                    row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                    headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+    }
+</script>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title style="font: bold 40px 'Bitcount'">AADA - Innovating AI & IoT Solutions</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Monoton&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #05050f;
+            color: #ffffff;
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+            transition: background 0.5s ease, color 0.5s ease;
+        }
+
+        /* ===== LIGHT THEME ===== */
+        body.light {
+            color: #e8e0ff;
+        }
+
+        /* Rich layered background for light mode */
+        body.light::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: -2;
+            background:
+                radial-gradient(ellipse 90% 60% at 15% 10%,  rgba(140, 60, 220, 0.22) 0%, transparent 55%),
+                radial-gradient(ellipse 70% 50% at 85% 15%,  rgba(0, 180, 160, 0.18) 0%, transparent 50%),
+                radial-gradient(ellipse 80% 55% at 50% 85%,  rgba(200, 80, 140, 0.16) 0%, transparent 55%),
+                radial-gradient(ellipse 60% 40% at 80% 60%,  rgba(60, 120, 210, 0.14) 0%, transparent 45%),
+                radial-gradient(ellipse 50% 40% at 20% 70%,  rgba(0, 200, 140, 0.12) 0%, transparent 45%),
+                linear-gradient(135deg, #1a1530 0%, #0e1f2e 30%, #1c1228 60%, #0f1e1a 100%);
+            pointer-events: none;
+        }
+
+        /* Subtle dot-grid overlay */
+        body.light::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background-image: radial-gradient(circle, rgba(160, 100, 255, 0.1) 1px, transparent 1px);
+            background-size: 32px 32px;
+            pointer-events: none;
+        }
+
+        body.light #threeCanvas { opacity: 0.35; }
+
+        body.light .nav {
+            background: rgba(20, 12, 40, 0.65);
+            border-color: rgba(160, 100, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(100, 40, 200, 0.2), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+
+        body.light .nav a { color: #d8c8ff; }
+        body.light .nav a:hover {
+            color: #c090ff;
+            background: rgba(160, 100, 255, 0.15);
+            box-shadow: 0 4px 15px rgba(160, 100, 255, 0.25);
+        }
+
+        body.light .theme-toggle {
+            background: rgba(20, 12, 40, 0.65);
+            border-color: rgba(160, 100, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(100, 40, 200, 0.2);
+        }
+
+        body.light .theme-toggle:hover {
+            border-color: rgba(160, 100, 255, 0.6);
+            box-shadow: 0 0 18px rgba(160, 100, 255, 0.4), 0 8px 32px rgba(100, 40, 200, 0.2);
+        }
+
+        body.light .hero-subtitle { color: #c8b8f0; }
+
+        body.light .about-text { color: #ccc0ee; }
+
+        body.light .section-title {
+            filter: drop-shadow(0 0 18px rgba(180, 100, 255, 0.45));
+        }
+
+        body.light .section-title::after {
+            background: linear-gradient(90deg, #a060ff, #ff40c0);
+            box-shadow: 0 0 12px rgba(160, 80, 255, 0.5);
+        }
+
+        body.light .about-canvas {
+            border-color: rgba(160, 100, 255, 0.3);
+            box-shadow: 0 0 40px rgba(140, 60, 220, 0.25);
+        }
+
+        body.light .project-card {
+            background: rgba(20, 12, 40, 0.55);
+            border-color: rgba(160, 100, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(80, 20, 160, 0.2), inset 0 1px 0 rgba(255,255,255,0.06);
+            backdrop-filter: blur(18px);
+        }
+
+        body.light .project-card::after {
+            background: linear-gradient(90deg, transparent, rgba(180, 100, 255, 0.3), transparent);
+        }
+
+        body.light .project-card:hover {
+            box-shadow: 0 24px 60px rgba(140, 60, 220, 0.3), 0 0 0 1px rgba(160, 100, 255, 0.35);
+            border-color: rgba(160, 100, 255, 0.45);
+        }
+
+        body.light .project-icon { color: #ff70cc; }
+
+        body.light .project-title { color: #b888ff; }
+        body.light .project-description { color: #b8a8e0; }
+
+        body.light .tech-tag {
+            background: rgba(160, 100, 255, 0.12);
+            border-color: rgba(160, 100, 255, 0.28);
+            color: #c090ff;
+        }
+
+        body.light .tech-tag:hover { background: rgba(160, 100, 255, 0.22); }
+
+        body.light .contact-section {
+            background: rgba(20, 12, 40, 0.5);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(160, 100, 255, 0.18);
+            box-shadow: 0 10px 40px rgba(100, 40, 200, 0.18);
+        }
+
+        body.light .contact-title {
+            background: linear-gradient(90deg, #a060ff, #ff50c0, #40c8ff);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        body.light .contact-text { color: #b8a8e0; }
+
+        body.light .social-link {
+            background: rgba(20, 12, 40, 0.5);
+            border-color: rgba(160, 100, 255, 0.22);
+            color: #ccc0ee;
+            backdrop-filter: blur(10px);
+        }
+
+        body.light .social-link:hover {
+            background: rgba(160, 100, 255, 0.15);
+            color: #c090ff;
+            box-shadow: 0 10px 25px rgba(140, 60, 220, 0.25);
+        }
+
+        body.light .footer {
+            color: #8870b0;
+            border-top-color: rgba(160, 100, 255, 0.15);
+        }
+
+        body.light .view-toggle-btn {
+            background: rgba(20, 12, 40, 0.55);
+            border-color: rgba(160, 100, 255, 0.22);
+            color: #9880cc;
+        }
+
+        body.light .view-toggle-btn.active {
+            background: linear-gradient(45deg, rgba(160, 100, 255, 0.2), rgba(220, 60, 160, 0.12));
+            color: #c090ff;
+            border-color: rgba(160, 100, 255, 0.5);
+            box-shadow: 0 0 20px rgba(140, 60, 220, 0.22);
+        }
+
+        body.light .cta-button {
+            box-shadow: 0 10px 40px rgba(140, 60, 220, 0.4);
+        }
+
+        body.light .cta-button:hover {
+            box-shadow: 0 15px 50px rgba(140, 60, 220, 0.55);
+        }
+
+        body.light .carousel-container {
+            mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+        }
+
+        /* Light mode icon colors */
+        body.light .icon-moon path { stroke: #b888ff; }
+        body.light .icon-sun circle,
+        body.light .icon-sun line { stroke: #ffaa40; }
+
+        /* ===== NAV WRAPPER (nav + theme toggle) ===== */
+        .nav-wrapper {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1001;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: max-content;
+        }
+
+        /* ===== THEME TOGGLE BUTTON ===== */
+        .theme-toggle {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            border: 1px solid rgba(0, 255, 204, 0.2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(10, 10, 20, 0.6);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 8px 32px rgba(0, 255, 204, 0.15);
+            transition: all 0.35s ease;
+            position: relative;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .theme-toggle:hover {
+            border-color: rgba(0, 255, 204, 0.55);
+            box-shadow: 0 0 18px rgba(0, 255, 204, 0.4), 0 8px 32px rgba(0, 255, 204, 0.2);
+            transform: scale(1.1);
+        }
+
+        body.light .theme-toggle {
+            background: rgba(240, 244, 255, 0.75);
+            border-color: rgba(0, 180, 140, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 180, 140, 0.12);
+        }
+
+        body.light .theme-toggle:hover {
+            border-color: rgba(0, 180, 140, 0.55);
+            box-shadow: 0 0 18px rgba(0, 180, 140, 0.3), 0 8px 32px rgba(0, 180, 140, 0.15);
+        }
+
+        .theme-toggle svg {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+
+        .icon-moon { opacity: 1; transform: rotate(0deg) scale(1); }
+        .icon-sun  { opacity: 0; transform: rotate(90deg) scale(0.5); }
+
+        /* Light mode: show sun, hide moon */
+        body.light .icon-moon { opacity: 0; transform: rotate(-90deg) scale(0.5); }
+        body.light .icon-sun  { opacity: 1; transform: rotate(0deg) scale(1); }
+
+        #threeCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.7;
+        }
+
+        .nav {
+            position: relative;
+            z-index: 1000;
+            display: flex;
+            gap: 25px;
+            background: rgba(10, 10, 20, 0.6);
+            backdrop-filter: blur(12px);
+            border-radius: 50px;
+            padding: 12px 30px;
+            border: 1px solid rgba(0, 255, 204, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 255, 204, 0.15);
+        }
+
+        .nav a {
+            color: #e0e0e0;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            padding: 10px 20px;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .nav a:hover {
+            color: #00ffcc;
+            background: rgba(0, 255, 204, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 255, 204, 0.3);
+        }
+
+        .hero {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .hero-content {
+            z-index: 10;
+            max-width: 900px;
+            padding: 0 20px;
+        }
+
+        .hero-title {
+            font-family: Monoton;
+            font-size: 8rem;
+            background: linear-gradient(45deg, #00ffcc, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+            text-shadow: 0 0 24px rgba(0, 255, 204, 0.2);
+        }
+
+        @keyframes gradient {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        .hero-subtitle {
+            font-size: 1.6rem;
+            font-weight: 400;
+            line-height: 1.6;
+            margin-bottom: 40px;
+            color: #d0d0d0;
+            animation: fadeInUp 1.2s ease 0.5s both;
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 16px 50px;
+            background: linear-gradient(45deg, #00ffcc, #ff00ff);
+            border: none;
+            border-radius: 50px;
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 1.1rem;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.4s ease;
+            box-shadow: 0 10px 40px rgba(0, 255, 204, 0.4);
+            position: relative;
+            overflow: hidden;
+            animation: pulse 2s infinite ease-in-out;
+        }
+
+        .cta-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: all 0.5s ease;
+        }
+
+        .cta-button:hover::before {
+            left: 100%;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 15px 50px rgba(0, 255, 204, 0.6);
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                box-shadow: 0 10px 40px rgba(0, 255, 204, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 10px 60px rgba(0, 255, 204, 0.7);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .section {
+            padding: 120px 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .section-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.6rem;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 60px;
+            background: linear-gradient(90deg, #00ffcc, #ff00ff, #00ffcc);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            animation: shimmerTitle 4s linear infinite;
+            filter: drop-shadow(0 0 20px rgba(0, 255, 204, 0.4));
+        }
+
+        @keyframes shimmerTitle {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+
+        .section-title::after {
+            content: '';
+            display: block;
+            width: 120px;
+            height: 3px;
+            background: linear-gradient(90deg, #00ffcc, #ff00ff);
+            margin: 18px auto 0;
+            border-radius: 2px;
+            box-shadow: 0 0 12px rgba(0, 255, 204, 0.6);
+        }
+
+        .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .about-text {
+            font-size: 1.2rem;
+            font-weight: 400;
+            line-height: 1.8;
+            color: #e0e0e0;
+            animation: fadeInUp 1s ease 0.3s both;
+        }
+
+        .about-canvas {
+            width: 100%;
+            height: 450px;
+            border-radius: 15px;
+            border: 1px solid rgba(0, 255, 204, 0.2);
+            box-shadow: 0 0 40px rgba(0, 255, 204, 0.3);
+            transform: perspective(1000px) rotateX(0deg);
+            transition: transform 0.5s ease;
+        }
+
+        .about-canvas:hover {
+            transform: perspective(1000px) rotateX(5deg) rotateY(5deg);
+        }
+
+        /* ===== PROJECTS SECTION ENHANCEMENTS ===== */
+        .projects-section-wrapper {
+            position: relative;
+        }
+
+        .projects-section-wrapper::before {
+            content: '';
+            position: absolute;
+            inset: -60px -50vw;
+            background: radial-gradient(ellipse 80% 60% at 50% 50%, rgba(0, 255, 204, 0.06), transparent 70%),
+                        radial-gradient(ellipse 60% 50% at 20% 80%, rgba(255, 0, 255, 0.05), transparent 60%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .carousel-container {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+            padding: 20px 0 40px;
+            mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+        }
+
+        .carousel-track {
+            display: flex;
+            gap: 28px;
+            width: max-content;
+            animation: carouselScroll 35s linear infinite;
+            will-change: transform;
+        }
+
+        .carousel-track:hover {
+            animation-play-state: paused;
+        }
+
+        @keyframes carouselScroll {
+            0%   { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 30px;
+        }
+
+        .project-card {
+            background: rgba(8, 8, 18, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 255, 204, 0.15);
+            border-radius: 20px;
+            padding: 32px 28px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s ease;
+            transform: perspective(1000px) rotateX(0deg) rotateY(0deg);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+            min-width: 320px;
+            max-width: 360px;
+            flex-shrink: 0;
+        }
+
+        .project-card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 204, 0.5), transparent);
+        }
+
+        .project-card:hover {
+            transform: perspective(1000px) rotateX(3deg) rotateY(3deg) translateY(-12px);
+            box-shadow: 0 24px 60px rgba(0, 255, 204, 0.25), 0 0 0 1px rgba(0, 255, 204, 0.3), inset 0 1px 0 rgba(255,255,255,0.08);
+            border-color: rgba(0, 255, 204, 0.4);
+        }
+
+        .project-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 204, 0.12), transparent);
+            transition: all 0.6s ease;
+        }
+
+        .project-card:hover::before {
+            left: 100%;
+        }
+
+        .project-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #ff00ff;
+            animation: float 4s ease-in-out infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .project-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #00ffcc;
+            letter-spacing: 1px;
+        }
+
+        .project-description {
+            font-size: 1rem;
+            line-height: 1.7;
+            color: #d0d0d0;
+            margin-bottom: 20px;
+        }
+
+        .tech-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .tech-tag {
+            background: rgba(0, 255, 204, 0.15);
+            border: 1px solid rgba(0, 255, 204, 0.3);
+            border-radius: 12px;
+            padding: 6px 14px;
+            font-size: 0.85rem;
+            color: #00ffcc;
+            transition: all 0.3s ease;
+        }
+
+        .tech-tag:hover {
+            background: rgba(0, 255, 204, 0.3);
+            transform: scale(1.1);
+        }
+
+        .contact-section {
+            text-align: center;
+            background: linear-gradient(135deg, rgba(0, 255, 204, 0.1), rgba(255, 0, 255, 0.1));
+            border-radius: 25px;
+            padding: 80px 40px;
+            margin: 100px 20px;
+            position: relative;
+            box-shadow: 0 10px 40px rgba(0, 255, 204, 0.2);
+        }
+
+        .contact-title {
+            font-size: 2.8rem;
+            font-weight: 800;
+            margin-bottom: 25px;
+            background: linear-gradient(45deg, #00ffcc, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 1.5px;
+        }
+
+        .contact-text {
+            font-size: 1.2rem;
+            font-weight: 400;
+            margin-bottom: 40px;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+
+        .social-links {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .social-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 30px;
+            background: rgba(10, 10, 20, 0.5);
+            border: 1px solid rgba(0, 255, 204, 0.2);
+            border-radius: 30px;
+            color: #e0e0e0;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 1rem;
+            text-transform: uppercase;
+            transition: all 0.4s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .social-link:hover {
+            background: rgba(0, 255, 204, 0.3);
+            color: #ffffff;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0, 255, 204, 0.4);
+        }
+
+        .footer {
+            text-align: center;
+            padding: 40px 20px;
+            font-size: 0.9rem;
+            color: #a0a0a0;
+            border-top: 1px solid rgba(0, 255, 204, 0.1);
+            margin-top: 80px;
+        }
+
+        @media (max-width: 1000px) {
+            .hero-title {
+                font-size: 4.2rem;
+            }
+
+            .hero-subtitle {
+                font-size: 1.2rem;
+            }
+
+            .section-title {
+                font-size: 1.8rem;
+                letter-spacing: 2px;
+            }
+
+            .about-grid {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .about-canvas {
+                height: 300px;
+            }
+
+            .nav-wrapper {
+                top: 12px;
+                gap: 6px;
+                max-width: calc(100vw - 20px);
+            }
+
+            .nav {
+                gap: 8px;
+                padding: 8px 14px;
+                flex-wrap: nowrap;
+            }
+
+            .nav a {
+                font-size: 13px;
+                padding: 8px 12px;
+                letter-spacing: 0;
+            }
+
+            .theme-toggle {
+                width: 38px;
+                height: 38px;
+            }
+
+            .projects-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .project-card {
+                min-width: 280px;
+                max-width: 300px;
+            }
+
+            .projects-grid .project-card {
+                min-width: unset;
+                max-width: unset;
+                width: 100%;
+            }
+        }
+
+        /* ===== VIEW TOGGLE BUTTON ===== */
+        .view-toggle-wrapper {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 32px;
+            gap: 0;
+        }
+
+        .view-toggle-btn {
+            background: rgba(10, 10, 20, 0.6);
+            border: 1px solid rgba(0, 255, 204, 0.25);
+            color: #a0a0a0;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            padding: 10px 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(10px);
+        }
+
+        .view-toggle-btn:first-child {
+            border-radius: 30px 0 0 30px;
+            border-right: none;
+        }
+
+        .view-toggle-btn:last-child {
+            border-radius: 0 30px 30px 0;
+            border-left: 1px solid rgba(0, 255, 204, 0.25);
+        }
+
+        .view-toggle-btn.active {
+            background: linear-gradient(45deg, rgba(0, 255, 204, 0.2), rgba(255, 0, 255, 0.15));
+            color: #00ffcc;
+            border-color: rgba(0, 255, 204, 0.5);
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
+        }
+
+        .view-toggle-btn:hover:not(.active) {
+            color: #e0e0e0;
+            background: rgba(0, 255, 204, 0.08);
+        }
+
+        /* Grid view for static display */
+        .projects-grid-view {
+            display: none;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 28px;
+        }
+
+        .projects-grid-view.active {
+            display: grid;
+        }
+
+        .projects-grid-view .project-card {
+            min-width: unset;
+            max-width: unset;
+            width: 100%;
+        }
+
+        .carousel-container.hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="threeCanvas"></canvas>
+
+    <div class="nav-wrapper">
+        <nav class="nav">
+            <a href="#home">Home</a>
+            <a href="#about">About</a>
+            <a href="#projects">Projects</a>
+            <a href="#contact">Contact</a>
+        </nav>
+
+        <!-- Theme Toggle — detached pill next to nav -->
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">
+            <!-- Moon icon (dark mode) -->
+            <svg class="icon-moon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"
+                    fill="none" stroke="#00ffcc" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <!-- Sun icon (light mode) -->
+            <svg class="icon-sun" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="5" stroke="#ff8800" stroke-width="2"/>
+                <line x1="12" y1="1" x2="12" y2="3"   stroke="#ff8800" stroke-width="2" stroke-linecap="round"/>
+                <line x1="12" y1="21" x2="12" y2="23"  stroke="#ff8800" stroke-width="2" stroke-linecap="round"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"  stroke="#ff8800" stroke-width="2" stroke-linecap="round"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="#ff8800" stroke-width="2" stroke-linecap="round"/>
+                <line x1="1" y1="12" x2="3" y2="12"   stroke="#ff8800" stroke-width="2" stroke-linecap="round"/>
+                <line x1="21" y1="12" x2="23" y2="12"  stroke="#ff8800" stroke-width="2" stroke-linecap="round"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="#ff8800" stroke-width="2" stroke-linecap="round"/>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"  stroke="#ff8800" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
+    </div>
+
+    <section class="hero" id="home">
+        <div class="hero-content">
+            <div class="hero-title">AADA</div>
+            <p class="hero-subtitle">Engineering the Future with AI, IoT, and Cutting-Edge Software</p>
+            <a href="#about" class="cta-button">Explore Our Innovations</a>
+        </div>
+    </section>
+
+    <section class="section" id="about">
+        <h2 class="section-title">About AADA</h2>
+        <div class="about-grid">
+            <div class="about-text">
+                <p>AADA is a visionary student-led organization at the forefront of technological innovation. We
+                    specialize in Artificial Intelligence, Internet of Things, and advanced software solutions, creating
+                    projects that push the boundaries of what's possible.</p>
+                <br>
+                <p>Our mission is to blend creativity with technical expertise, building intelligent systems and IoT
+                    ecosystems that solve real-world challenges. From AI-powered music analyzers to smart home
+                    automation, AADA is shaping the future, one innovation at a time.</p>
+            </div>
+            <canvas class="about-canvas" id="about3D"></canvas>
+        </div>
+    </section>
+
+    <section class="section" id="projects">
+        <div class="projects-section-wrapper">
+        <h2 class="section-title">Our Projects</h2>
+
+        <!-- View Toggle -->
+        <div class="view-toggle-wrapper">
+            <button class="view-toggle-btn active" id="btnCarousel" onclick="setView('carousel')">
+                <span>⟳</span> Carousel
+            </button>
+            <button class="view-toggle-btn" id="btnGrid" onclick="setView('grid')">
+                <span>⊞</span> Grid
+            </button>
+        </div>
+
+        <!-- CAROUSEL VIEW (default) -->
+        <div class="carousel-container" id="carouselView">
+        <div class="carousel-track" id="carouselTrack">
+            <!-- Original cards -->
+            <div class="project-card">
+                <div class="project-icon">🎼</div>
+                <h3 class="project-title">Real-Time Music Analyzer</h3>
+                <p class="project-description">An AI-driven tool that analyzes live or uploaded audio to detect chords,
+                    scales, and notes in real-time, ideal for music education and visualizations.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">Python</span>
+                    <span class="tech-tag">Librosa</span>
+                    <span class="tech-tag">TensorFlow</span>
+                    <span class="tech-tag">Audio Processing</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">✍️</div>
+                <h3 class="project-title">AirDraw Gesture Typing</h3>
+                <p class="project-description">A touchless typing system that tracks hand gestures to convert
+                    finger-drawn letters into text, designed for accessibility and AR interfaces.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">OpenCV</span>
+                    <span class="tech-tag">MediaPipe</span>
+                    <span class="tech-tag">Python</span>
+                    <span class="tech-tag">Gesture Recognition</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">🔍</div>
+                <a href="https://abhinobkd.github.io/Enhanced-searcher/" target="_blank"><h3 class="project-title"> Search Prefix Tool (EST)</h3></a>
+                <p class="project-description">Enhancing Google search with smart prefixes, featuring
+                    a professional UI and theme options for efficient research.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">JavaScript</span>
+                    <span class="tech-tag">HTML</span>
+                    <span class="tech-tag">CSS</span>
+                    <span class="tech-tag">Chrome API</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">🔌</div>
+                <a href="https://aadaconnect.github.io" target="_blank"><h3 class="project-title">AADAconnect Smart Plug System</h3></a>
+                <p class="project-description">An AI-powered IoT ecosystem for smart home automation, featuring
+                    real-time MQTT control, Firebase integration, and a futuristic web dashboard.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">ESP32</span>
+                    <span class="tech-tag">MQTT</span>
+                    <span class="tech-tag">Firebase</span>
+                    <span class="tech-tag">IoT</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">🤖</div>
+                <h3 class="project-title">Color Detection Mechatronic Arm</h3>
+                <p class="project-description">A robotic arm that detects and picks objects based on color, using
+                    ESP8266, color sensors, and servos for precise automation.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">ESP8266</span>
+                    <span class="tech-tag">Color Sensors</span>
+                    <span class="tech-tag">Servos</span>
+                    <span class="tech-tag">Mechatronics</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">🦾</div>
+                <h3 class="project-title">Gesture-Based Robot Arm</h3>
+                <p class="project-description">A robotic arm controlled through intuitive gestures or patterns,
+                    leveraging gyroscopes or camera-based tracking for seamless interaction.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">Gyroscope</span>
+                    <span class="tech-tag">Camera</span>
+                    <span class="tech-tag">Robotics</span>
+                    <span class="tech-tag">Gesture Control</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">⌨️</div>
+                <h3 class="project-title">Typing Practice Software</h3>
+                <p class="project-description">A Python-based tool to enhance typing skills with frequently used words,
+                    featuring an intuitive GUI for user engagement.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">Python</span>
+                    <span class="tech-tag">Tkinter</span>
+                    <span class="tech-tag">PyQt</span>
+                    <span class="tech-tag">GUI</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">📁</div>
+                <h3 class="project-title">File Sorting System</h3>
+                <p class="project-description">An automated Python tool to organize files into folders based on type or
+                    custom logic, streamlining file management.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">Python</span>
+                    <span class="tech-tag">os</span>
+                    <span class="tech-tag">shutil</span>
+                    <span class="tech-tag">Automation</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">☁️</div>
+                <h3 class="project-title">Google Drive Search Tool</h3>
+                <p class="project-description">A specialized search tool using Google Drive prefixes to find shared
+                    files, with plans for integration into the EST tool.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">JavaScript</span>
+                    <span class="tech-tag">Google API</span>
+                    <span class="tech-tag">Search</span>
+                    <span class="tech-tag">Web</span>
+                </div>
+            </div>
+            <!-- Duplicate cards for seamless loop -->
+            <div class="project-card">
+                <div class="project-icon">🎼</div>
+                <h3 class="project-title">Real-Time Music Analyzer</h3>
+                <p class="project-description">An AI-driven tool that analyzes live or uploaded audio to detect chords,
+                    scales, and notes in real-time, ideal for music education and visualizations.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">Python</span>
+                    <span class="tech-tag">Librosa</span>
+                    <span class="tech-tag">TensorFlow</span>
+                    <span class="tech-tag">Audio Processing</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">✍️</div>
+                <h3 class="project-title">AirDraw Gesture Typing</h3>
+                <p class="project-description">A touchless typing system that tracks hand gestures to convert
+                    finger-drawn letters into text, designed for accessibility and AR interfaces.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">OpenCV</span>
+                    <span class="tech-tag">MediaPipe</span>
+                    <span class="tech-tag">Python</span>
+                    <span class="tech-tag">Gesture Recognition</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">🔍</div>
+                <a href="https://abhinobkd.github.io/Enhanced-searcher/" target="_blank"><h3 class="project-title"> Search Prefix Tool (EST)</h3></a>
+                <p class="project-description">Enhancing Google search with smart prefixes, featuring
+                    a professional UI and theme options for efficient research.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">JavaScript</span>
+                    <span class="tech-tag">HTML</span>
+                    <span class="tech-tag">CSS</span>
+                    <span class="tech-tag">Chrome API</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">🔌</div>
+                <a href="https://aadaconnect.github.io" target="_blank"><h3 class="project-title">AADAconnect Smart Plug System</h3></a>
+                <p class="project-description">An AI-powered IoT ecosystem for smart home automation, featuring
+                    real-time MQTT control, Firebase integration, and a futuristic web dashboard.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">ESP32</span>
+                    <span class="tech-tag">MQTT</span>
+                    <span class="tech-tag">Firebase</span>
+                    <span class="tech-tag">IoT</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">🤖</div>
+                <h3 class="project-title">Color Detection Mechatronic Arm</h3>
+                <p class="project-description">A robotic arm that detects and picks objects based on color, using
+                    ESP8266, color sensors, and servos for precise automation.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">ESP8266</span>
+                    <span class="tech-tag">Color Sensors</span>
+                    <span class="tech-tag">Servos</span>
+                    <span class="tech-tag">Mechatronics</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">🦾</div>
+                <h3 class="project-title">Gesture-Based Robot Arm</h3>
+                <p class="project-description">A robotic arm controlled through intuitive gestures or patterns,
+                    leveraging gyroscopes or camera-based tracking for seamless interaction.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">Gyroscope</span>
+                    <span class="tech-tag">Camera</span>
+                    <span class="tech-tag">Robotics</span>
+                    <span class="tech-tag">Gesture Control</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">⌨️</div>
+                <h3 class="project-title">Typing Practice Software</h3>
+                <p class="project-description">A Python-based tool to enhance typing skills with frequently used words,
+                    featuring an intuitive GUI for user engagement.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">Python</span>
+                    <span class="tech-tag">Tkinter</span>
+                    <span class="tech-tag">PyQt</span>
+                    <span class="tech-tag">GUI</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">📁</div>
+                <h3 class="project-title">File Sorting System</h3>
+                <p class="project-description">An automated Python tool to organize files into folders based on type or
+                    custom logic, streamlining file management.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">Python</span>
+                    <span class="tech-tag">os</span>
+                    <span class="tech-tag">shutil</span>
+                    <span class="tech-tag">Automation</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">☁️</div>
+                <h3 class="project-title">Google Drive Search Tool</h3>
+                <p class="project-description">A specialized search tool using Google Drive prefixes to find shared
+                    files, with plans for integration into the EST tool.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">JavaScript</span>
+                    <span class="tech-tag">Google API</span>
+                    <span class="tech-tag">Search</span>
+                    <span class="tech-tag">Web</span>
+                </div>
+            </div>
+        </div>
+        </div>
+
+        <!-- STATIC GRID VIEW -->
+        <div class="projects-grid-view" id="gridView">
+            <div class="project-card">
+                <div class="project-icon">🎼</div>
+                <h3 class="project-title">Real-Time Music Analyzer</h3>
+                <p class="project-description">An AI-driven tool that analyzes live or uploaded audio to detect chords,
+                    scales, and notes in real-time, ideal for music education and visualizations.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">Python</span>
+                    <span class="tech-tag">Librosa</span>
+                    <span class="tech-tag">TensorFlow</span>
+                    <span class="tech-tag">Audio Processing</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">✍️</div>
+                <h3 class="project-title">AirDraw Gesture Typing</h3>
+                <p class="project-description">A touchless typing system that tracks hand gestures to convert
+                    finger-drawn letters into text, designed for accessibility and AR interfaces.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">OpenCV</span>
+                    <span class="tech-tag">MediaPipe</span>
+                    <span class="tech-tag">Python</span>
+                    <span class="tech-tag">Gesture Recognition</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">🔍</div>
+                <a href="https://abhinobkd.github.io/Enhanced-searcher/" target="_blank"><h3 class="project-title">Search Prefix Tool (EST)</h3></a>
+                <p class="project-description">Enhancing Google search with smart prefixes, featuring
+                    a professional UI and theme options for efficient research.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">JavaScript</span>
+                    <span class="tech-tag">HTML</span>
+                    <span class="tech-tag">CSS</span>
+                    <span class="tech-tag">Chrome API</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">🔌</div>
+                <a href="https://aadaconnect.github.io" target="_blank"><h3 class="project-title">AADAconnect Smart Plug System</h3></a>
+                <p class="project-description">An AI-powered IoT ecosystem for smart home automation, featuring
+                    real-time MQTT control, Firebase integration, and a futuristic web dashboard.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">ESP32</span>
+                    <span class="tech-tag">MQTT</span>
+                    <span class="tech-tag">Firebase</span>
+                    <span class="tech-tag">IoT</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">🤖</div>
+                <h3 class="project-title">Color Detection Mechatronic Arm</h3>
+                <p class="project-description">A robotic arm that detects and picks objects based on color, using
+                    ESP8266, color sensors, and servos for precise automation.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">ESP8266</span>
+                    <span class="tech-tag">Color Sensors</span>
+                    <span class="tech-tag">Servos</span>
+                    <span class="tech-tag">Mechatronics</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">🦾</div>
+                <h3 class="project-title">Gesture-Based Robot Arm</h3>
+                <p class="project-description">A robotic arm controlled through intuitive gestures or patterns,
+                    leveraging gyroscopes or camera-based tracking for seamless interaction.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">Gyroscope</span>
+                    <span class="tech-tag">Camera</span>
+                    <span class="tech-tag">Robotics</span>
+                    <span class="tech-tag">Gesture Control</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">⌨️</div>
+                <h3 class="project-title">Typing Practice Software</h3>
+                <p class="project-description">A Python-based tool to enhance typing skills with frequently used words,
+                    featuring an intuitive GUI for user engagement.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">Python</span>
+                    <span class="tech-tag">Tkinter</span>
+                    <span class="tech-tag">PyQt</span>
+                    <span class="tech-tag">GUI</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">📁</div>
+                <h3 class="project-title">File Sorting System</h3>
+                <p class="project-description">An automated Python tool to organize files into folders based on type or
+                    custom logic, streamlining file management.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">Python</span>
+                    <span class="tech-tag">os</span>
+                    <span class="tech-tag">shutil</span>
+                    <span class="tech-tag">Automation</span>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-icon">☁️</div>
+                <h3 class="project-title">Google Drive Search Tool</h3>
+                <p class="project-description">A specialized search tool using Google Drive prefixes to find shared
+                    files, with plans for integration into the EST tool.</p>
+                <div class="tech-tags">
+                    <span class="tech-tag">JavaScript</span>
+                    <span class="tech-tag">Google API</span>
+                    <span class="tech-tag">Search</span>
+                    <span class="tech-tag">Web</span>
+                </div>
+            </div>
+        </div>
+
+        </div>
+    </section>
+
+    <section class="section contact-section" id="contact">
+        <h2 class="contact-title">Connect with AADA</h2>
+        <p class="contact-text">We're seeking passionate innovators to join our mission of building the future with AI
+            and IoT. Reach out to collaborate or learn more!</p>
+        <div class="social-links">
+            <a href="#" class="social-link">
+                <span>📧</span>
+                Email
+            </a>
+            <a href="#" class="social-link">
+                <span>💼</span>
+                LinkedIn
+            </a>
+            <a href="#" class="social-link">
+                <span>🔗</span>
+                GitHub
+            </a>
+            <a href="#" class="social-link">
+                <span>🐦</span>
+                Twitter
+            </a>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <p>© 2025 AADA - Pioneering AI & IoT Innovation</p>
+    </footer>
+
+    <script>
+        // Three.js Background with 3D Particle System
+        function initThreeJS() {
+            const canvas = document.getElementById('threeCanvas');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            // Particle System
+            const particlesGeometry = new THREE.BufferGeometry();
+            const particleCount = 1000;
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+
+            for (let i = 0; i < particleCount * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 100;
+                positions[i + 1] = (Math.random() - 0.5) * 100;
+                positions[i + 2] = (Math.random() - 0.5) * 100;
+                colors[i] = 0; colors[i + 1] = 1; colors[i + 2] = 0.8;
+            }
+
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const particlesMaterial = new THREE.PointsMaterial({
+                size: 0.1,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.6,
+                sizeAttenuation: true
+            });
+
+            const particles = new THREE.Points(particlesGeometry, particlesMaterial);
+            scene.add(particles);
+
+            // Lines between particles
+            const linesGeometry = new THREE.BufferGeometry();
+            const linesMaterial = new THREE.LineBasicMaterial({
+                color: 0x00ffcc,
+                transparent: true,
+                opacity: 0.3
+            });
+
+            const maxConnections = 50;
+            const linePositions = [];
+            const positionsArray = particlesGeometry.attributes.position.array;
+
+            for (let i = 0; i < particleCount; i++) {
+                for (let j = i + 1; j < particleCount; j++) {
+                    const dx = positionsArray[i * 3] - positionsArray[j * 3];
+                    const dy = positionsArray[i * 3 + 1] - positionsArray[j * 3 + 1];
+                    const dz = positionsArray[i * 3 + 2] - positionsArray[j * 3 + 2];
+                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                    if (distance < 10 && Math.random() < 0.1) {
+                        linePositions.push(
+                            positionsArray[i * 3], positionsArray[i * 3 + 1], positionsArray[i * 3 + 2],
+                            positionsArray[j * 3], positionsArray[j * 3 + 1], positionsArray[j * 3 + 2]
+                        );
+                    }
+                }
+            }
+
+            linesGeometry.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+            const lines = new THREE.LineSegments(linesGeometry, linesMaterial);
+            scene.add(lines);
+
+            camera.position.z = 50;
+
+            function animate() {
+                requestAnimationFrame(animate);
+                particles.rotation.y += 0.001;
+                particles.rotation.x += 0.0005;
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // 3D About Section Animation
+        function initAbout3D() {
+            const canvas = document.getElementById('about3D');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, canvas.offsetWidth / canvas.offsetHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+            renderer.setSize(canvas.offsetWidth, canvas.offsetHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            const geometry = new THREE.IcosahedronGeometry(5, 1);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0x00ffcc,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.5
+            });
+            const icosahedron = new THREE.Mesh(geometry, material);
+            scene.add(icosahedron);
+
+            const pointLight = new THREE.PointLight(0xff00ff, 1, 100);
+            pointLight.position.set(10, 10, 10);
+            scene.add(pointLight);
+
+            camera.position.z = 15;
+
+            function animate() {
+                requestAnimationFrame(animate);
+                icosahedron.rotation.x += 0.01;
+                icosahedron.rotation.y += 0.01;
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = canvas.offsetWidth / canvas.offsetHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(canvas.offsetWidth, canvas.offsetHeight);
+            });
+        }
+
+        // GSAP Scroll Animations
+        function initGSAPAnimations() {
+            gsap.registerPlugin(ScrollTrigger);
+            gsap.utils.toArray('.project-card, .section-title, .about-text, .contact-section').forEach(element => {
+                gsap.from(element, {
+                    opacity: 0,
+                    y: 80,
+                    duration: 1.2,
+                    ease: 'power3.out',
+                    scrollTrigger: {
+                        trigger: element,
+                        start: 'top 85%',
+                        toggleActions: 'play none none reverse'
+                    }
+                });
+            });
+        }
+
+        // Smooth Scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Mouse Interaction for 3D Background
+        let mouseX = 0, mouseY = 0;
+        document.addEventListener('mousemove', (e) => {
+            mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        // Theme Toggle
+        function toggleTheme() {
+            document.body.classList.toggle('light');
+            const isLight = document.body.classList.contains('light');
+            localStorage.setItem('aada-theme', isLight ? 'light' : 'dark');
+        }
+
+        // Restore saved theme
+        (function() {
+            if (localStorage.getItem('aada-theme') === 'light') {
+                document.body.classList.add('light');
+            }
+        })();
+
+        // View toggle: carousel <-> grid
+        function setView(mode) {
+            const carousel = document.getElementById('carouselView');
+            const grid = document.getElementById('gridView');
+            const btnCarousel = document.getElementById('btnCarousel');
+            const btnGrid = document.getElementById('btnGrid');
+
+            if (mode === 'carousel') {
+                carousel.classList.remove('hidden');
+                grid.classList.remove('active');
+                btnCarousel.classList.add('active');
+                btnGrid.classList.remove('active');
+            } else {
+                carousel.classList.add('hidden');
+                grid.classList.add('active');
+                btnCarousel.classList.remove('active');
+                btnGrid.classList.add('active');
+            }
+        }
+
+        // Initialize Everything
+        document.addEventListener('DOMContentLoaded', () => {
+            initThreeJS();
+            initAbout3D();
+            initGSAPAnimations();
+        });
+    </script>
+</body>
+
+</html>
